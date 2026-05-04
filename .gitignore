@@ -12,3 +12,4 @@ frontend/ios
 .claude
 bun.lock
 yarn.lock
+.playwright-mcp/

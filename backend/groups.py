@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from db import (
@@ -123,19 +124,31 @@ def upsert_user(
     if not name:
         raise HTTPException(status_code=400, detail="Empty name")
 
-    user = session.get(User, payload.user_id)
     token_hash = _hash_token(payload.token)
-    if user:
-        if not hmac.compare_digest(user.token_hash, token_hash):
-            raise HTTPException(status_code=401, detail="Token mismatch for user_id")
-        user.name = name[:64]
-    else:
-        user = User(
-            id=payload.user_id,
-            name=name[:64],
-            token_hash=token_hash,
-        )
-        session.add(user)
+
+    # Race-safe upsert: try insert first, fall back to update on conflict so
+    # parallel calls (e.g. React StrictMode double-effect) don't 500.
+    user = session.get(User, payload.user_id)
+    if user is None:
+        try:
+            user = User(
+                id=payload.user_id,
+                name=name[:64],
+                token_hash=token_hash,
+            )
+            session.add(user)
+            session.commit()
+            return UserOut(id=user.id, name=user.name)
+        except IntegrityError:
+            session.rollback()
+            user = session.get(User, payload.user_id)
+
+    if user is None:
+        raise HTTPException(status_code=500, detail="Could not upsert user")
+
+    if not hmac.compare_digest(user.token_hash, token_hash):
+        raise HTTPException(status_code=401, detail="Token mismatch for user_id")
+    user.name = name[:64]
     session.commit()
     return UserOut(id=user.id, name=user.name)
 
@@ -311,17 +324,22 @@ def leaderboard(
 @router.get("/entries/{entry_id}/image")
 def entry_image(
     entry_id: str,
-    user: Annotated[User, Depends(current_user)],
     session: Annotated[Session, Depends(db)],
 ):
+    # Capability URL: image is keyed by an unguessable UUIDv4 (122 bits) which
+    # is only ever revealed via the authenticated /groups/:id/entries response.
+    # Bare-image route lets <img src> tags work on web without custom headers.
     entry = session.get(Entry, entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-    _require_member(session, user, entry.group_id)
     path = Path(UPLOADS_DIR) / entry.image_filename
     if not path.exists():
         raise HTTPException(status_code=410, detail="Image gone")
-    return FileResponse(path, media_type="image/jpeg")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 # ---------- helpers ----------
@@ -343,6 +361,8 @@ def _group_out(session: Session, group: Group, user: User) -> GroupOut:
 
 def _entry_out(session: Session, entry: Entry, request: Request) -> EntryOut:
     user = session.get(User, entry.user_id)
+    # Return a relative path; the client prefixes with its configured API base
+    # so this works regardless of reverse-proxy setup, scheme, or host.
     return EntryOut(
         id=entry.id,
         user_id=entry.user_id,
@@ -350,5 +370,5 @@ def _entry_out(session: Session, entry: Entry, request: Request) -> EntryOut:
         score=entry.score,
         label=entry.label,
         created_at=entry.created_at.isoformat() if entry.created_at else "",
-        image_url=str(request.url_for("entry_image", entry_id=entry.id)),
+        image_url=f"/entries/{entry.id}/image",
     )

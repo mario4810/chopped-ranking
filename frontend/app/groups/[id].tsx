@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,15 +9,16 @@ import {
   Image,
   Platform,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EntryOut, getLeaderboard, submitGroupEntry } from '@/lib/api';
+import { EntryOut, getLeaderboard, listGroups, submitGroupEntry } from '@/lib/api';
 import { useIdentity } from '@/lib/identity';
-import { useSettings } from '@/lib/settings';
+import { normalizeApiBaseUrl, useSettings } from '@/lib/settings';
 
 const tint = (score: number) => {
   if (score >= 80) return '#ff4d6d';
@@ -30,6 +31,7 @@ const tint = (score: number) => {
 export default function GroupLeaderboardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { settings } = useSettings();
   const { ensure, identity } = useIdentity();
   const accent = settings.accent;
@@ -38,6 +40,11 @@ export default function GroupLeaderboardScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [groupCode, setGroupCode] = useState<string | null>(null);
+
+  // gate render until client mount to avoid hydration mismatch on dynamic route
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
@@ -59,8 +66,15 @@ export default function GroupLeaderboardScreen() {
     setError(null);
     try {
       const me = await ensure();
-      const data = await getLeaderboard(settings.apiBaseUrl, me, id, controller.signal);
-      if (mountedRef.current) setEntries(data);
+      const [data, groups] = await Promise.all([
+        getLeaderboard(settings.apiBaseUrl, me, id, controller.signal),
+        listGroups(settings.apiBaseUrl, me, controller.signal).catch(() => []),
+      ]);
+      if (mountedRef.current) {
+        setEntries(data);
+        const here = groups.find((g) => g.id === id);
+        setGroupCode(here?.code ?? null);
+      }
     } catch (e: any) {
       if (e?.name !== 'AbortError' && mountedRef.current)
         setError(e?.message ?? 'Could not load leaderboard');
@@ -70,8 +84,47 @@ export default function GroupLeaderboardScreen() {
   }, [ensure, id, settings.apiBaseUrl]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (hydrated) refresh();
+  }, [hydrated, refresh]);
+
+  const onShareCode = useCallback(async () => {
+    if (!groupCode) return;
+    const message = `Join my Chopped Ranking group with code ${groupCode}. Pretend you're not scared.`;
+    try {
+      if (Platform.OS === 'web') {
+        const navAny: any = globalThis as any;
+        if (navAny.navigator?.share) {
+          await navAny.navigator.share({ title: 'Chopped Ranking', text: message });
+          return;
+        }
+        await navAny.navigator?.clipboard?.writeText(groupCode);
+        Alert.alert('Code copied', `${groupCode} is in your clipboard.`);
+      } else {
+        await Share.share({ message });
+      }
+    } catch {
+      // user cancelled or share unavailable — silent
+    }
+  }, [groupCode]);
+
+  // expose Share button in the navigation header once we know the code
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () =>
+        groupCode ? (
+          <Pressable
+            onPress={onShareCode}
+            accessibilityLabel="Share invite code"
+            style={({ pressed }) => [
+              styles.headerBtn,
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Ionicons name="share-outline" size={22} color={accent} />
+          </Pressable>
+        ) : null,
+    });
+  }, [navigation, onShareCode, groupCode, accent]);
 
   const submit = useCallback(
     async (source: 'camera' | 'library') => {
@@ -111,9 +164,10 @@ export default function GroupLeaderboardScreen() {
     [ensure, id, refresh, settings.apiBaseUrl],
   );
 
+  if (!hydrated) return null;
+
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen options={{ title: 'Leaderboard' }} />
       <FlatList
         contentContainerStyle={[
           styles.container,
@@ -183,10 +237,7 @@ export default function GroupLeaderboardScreen() {
             >
               <Text style={styles.rank}>#{index + 1}</Text>
               <Image
-                source={{
-                  uri: item.image_url,
-                  headers: { Authorization: `Bearer ${identity?.token ?? ''}` },
-                }}
+                source={{ uri: `${normalizeApiBaseUrl(settings.apiBaseUrl)}${item.image_url}` }}
                 style={styles.avatar}
               />
               <View style={{ flex: 1 }}>
@@ -273,9 +324,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     width: 32,
   },
-  avatar: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#23232f' },
-  name: { color: '#fff', fontWeight: '700' },
-  label: { fontSize: 12, marginTop: 2 },
+  avatar: { width: 96, height: 96, borderRadius: 14, backgroundColor: '#23232f' },
+  name: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  label: { fontSize: 13, marginTop: 4 },
   scoreCol: { alignItems: 'flex-end' },
   score: { fontSize: 20, fontWeight: '900' },
   scoreSlash: { color: '#9c9caa', fontSize: 11 },
@@ -291,4 +342,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: { color: '#ffb4b4', flex: 1 },
+  headerBtn: { marginRight: 12, padding: 4 },
 });
