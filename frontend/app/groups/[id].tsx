@@ -7,6 +7,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Modal,
   Platform,
   Pressable,
   Share,
@@ -28,6 +29,20 @@ const tint = (score: number) => {
   return '#1dd1a1';
 };
 
+const formatWhen = (iso: string): string => {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso;
+  const diff = Date.now() - t;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
+  return new Date(t).toLocaleDateString();
+};
+
 export default function GroupLeaderboardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
@@ -41,6 +56,8 @@ export default function GroupLeaderboardScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [groupCode, setGroupCode] = useState<string | null>(null);
+  const [selected, setSelected] = useState<EntryOut | null>(null);
+  const [selectedRank, setSelectedRank] = useState<number | null>(null);
 
   // gate render until client mount to avoid hydration mismatch on dynamic route
   const [hydrated, setHydrated] = useState(false);
@@ -242,10 +259,15 @@ export default function GroupLeaderboardScreen() {
           const color = tint(item.score);
           const isMe = item.user_id === identity?.userId;
           return (
-            <View
-              style={[
+            <Pressable
+              onPress={() => {
+                setSelected(item);
+                setSelectedRank(index + 1);
+              }}
+              style={({ pressed }) => [
                 styles.row,
                 isMe && { borderColor: `${accent}88`, backgroundColor: '#1c1c25' },
+                pressed && { opacity: 0.85 },
               ]}
             >
               <Text style={styles.rank}>#{index + 1}</Text>
@@ -266,7 +288,7 @@ export default function GroupLeaderboardScreen() {
                 <Text style={[styles.score, { color }]}>{item.score}</Text>
                 <Text style={styles.scoreSlash}>/100</Text>
               </View>
-            </View>
+            </Pressable>
           );
         }}
         ListEmptyComponent={
@@ -278,6 +300,64 @@ export default function GroupLeaderboardScreen() {
         }
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
       />
+
+      <Modal
+        visible={selected !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelected(null)}
+      >
+        <Pressable style={styles.modalScrim} onPress={() => setSelected(null)}>
+          {selected && (
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              style={[
+                styles.modalCard,
+                { borderColor: `${tint(selected.score)}55` },
+              ]}
+            >
+              <Image
+                source={{
+                  uri: `${normalizeApiBaseUrl(settings.apiBaseUrl)}${selected.image_url}`,
+                }}
+                style={styles.modalImage}
+              />
+              <View style={styles.modalBody}>
+                <View style={styles.modalHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalName}>{selected.user_name}</Text>
+                    <Text style={styles.modalMeta}>
+                      {selectedRank ? `#${selectedRank} · ` : ''}
+                      {formatWhen(selected.created_at)}
+                    </Text>
+                  </View>
+                  <View style={styles.modalScoreCol}>
+                    <Text style={[styles.modalScore, { color: tint(selected.score) }]}>
+                      {selected.score}
+                    </Text>
+                    <Text style={styles.scoreSlash}>/100</Text>
+                  </View>
+                </View>
+                <Text style={[styles.modalLabel, { color: tint(selected.score) }]}>
+                  {selected.label}
+                </Text>
+                <View style={styles.modalActions}>
+                  <Pressable
+                    onPress={() => setSelected(null)}
+                    style={({ pressed }) => [
+                      styles.modalCloseBtn,
+                      { backgroundColor: accent },
+                      pressed && { opacity: 0.85 },
+                    ]}
+                  >
+                    <Text style={styles.modalCloseText}>Close the verdict</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </Pressable>
+          )}
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -356,4 +436,39 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#ffb4b4', flex: 1 },
   headerBtn: { marginRight: 12, padding: 4 },
+  modalScrim: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#15151c',
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  modalImage: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#23232f',
+  },
+  modalBody: { padding: 18, gap: 12 },
+  modalHeaderRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
+  modalName: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  modalMeta: { color: '#9c9caa', fontSize: 13, marginTop: 4 },
+  modalScoreCol: { alignItems: 'flex-end' },
+  modalScore: { fontSize: 36, fontWeight: '900', lineHeight: 38 },
+  modalLabel: { fontSize: 18, fontWeight: '700', textTransform: 'capitalize' },
+  modalActions: { marginTop: 4 },
+  modalCloseBtn: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseText: { color: '#0b0b0f', fontSize: 15, fontWeight: '800' },
 });
