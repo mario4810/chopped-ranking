@@ -60,13 +60,14 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
 
-  // pick once per mount so they don't flicker on re-render
-  const [subtitle] = useState(() => pickRandom(SUBTITLES));
-  const [emptyHint] = useState(() => pickRandom(EMPTY_HINTS));
-  const [disclaimer] = useState(() => pickRandom(DAILY_DISCLAIMERS));
-  const [retryLabel, setRetryLabel] = useState(() => pickRandom(RETRY_LABELS));
-  const [successQuip, setSuccessQuip] = useState(() => pickRandom(SUCCESS_QUIPS));
-  const [verdictBadge, setVerdictBadge] = useState(() => pickRandom(VERDICT_BADGES));
+  // start with stable defaults so the static-rendered HTML matches the first
+  // client render, then randomize after mount to avoid hydration mismatch
+  const [subtitle, setSubtitle] = useState(SUBTITLES[0]);
+  const [emptyHint, setEmptyHint] = useState(EMPTY_HINTS[0]);
+  const [disclaimer, setDisclaimer] = useState(DAILY_DISCLAIMERS[0]);
+  const [retryLabel, setRetryLabel] = useState(RETRY_LABELS[0]);
+  const [successQuip, setSuccessQuip] = useState(SUCCESS_QUIPS[0]);
+  const [verdictBadge, setVerdictBadge] = useState(VERDICT_BADGES[0]);
 
   // animated score count-up on result reveal
   const [displayScore, setDisplayScore] = useState(0);
@@ -87,6 +88,16 @@ export default function Home() {
       abortRef.current?.abort();
       abortRef.current = null;
     };
+  }, []);
+
+  // randomize copy after mount (avoids SSR/CSR hydration mismatch)
+  useEffect(() => {
+    setSubtitle(pickRandom(SUBTITLES));
+    setEmptyHint(pickRandom(EMPTY_HINTS));
+    setDisclaimer(pickRandom(DAILY_DISCLAIMERS));
+    setRetryLabel(pickRandom(RETRY_LABELS));
+    setSuccessQuip(pickRandom(SUCCESS_QUIPS));
+    setVerdictBadge(pickRandom(VERDICT_BADGES));
   }, []);
 
   // animate score count-up on each new result

@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthBootstrap } from '@/lib/auth-bootstrap';
 import { IdentityProvider } from '@/lib/identity';
 import { SettingsProvider, useSettings } from '@/lib/settings';
 
@@ -45,6 +46,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <SettingsProvider>
         <IdentityProvider>
+          <AuthBootstrap />
           <ThemedStack />
         </IdentityProvider>
       </SettingsProvider>

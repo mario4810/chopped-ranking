@@ -14,7 +14,6 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import FileResponse
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
-from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -114,44 +113,12 @@ class EntryOut(BaseModel):
 # ---------- endpoints ----------
 
 
-# Per-IP failure tracking for brute-force surfaces. Augments the global
-# slowapi rate limit with stricter caps on /users and /groups/join.
-import time
-from collections import deque
-from threading import Lock
-
-_BRUTE_WINDOW_SEC = 60
-_BRUTE_LIMITS = {"users": 20, "join": 15}  # max attempts per minute per IP
-_brute_lock = Lock()
-_brute: dict[str, dict[str, deque[float]]] = {}
-
-
-def _check_brute_limit(request: Request, bucket: str) -> None:
-    ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-    if not ip:
-        ip = get_remote_address(request)
-    now = time.monotonic()
-    cutoff = now - _BRUTE_WINDOW_SEC
-    with _brute_lock:
-        per_ip = _brute.setdefault(ip, {})
-        q = per_ip.setdefault(bucket, deque())
-        while q and q[0] < cutoff:
-            q.popleft()
-        if len(q) >= _BRUTE_LIMITS[bucket]:
-            raise HTTPException(
-                status_code=429,
-                detail="Too many attempts; slow down",
-            )
-        q.append(now)
-
-
 @router.post("/users", response_model=UserOut)
 def upsert_user(
     payload: UserUpsert,
     request: Request,
     session: Annotated[Session, Depends(db)],
 ):
-    _check_brute_limit(request, "users")
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Empty name")
@@ -207,7 +174,6 @@ def join_group(
     user: Annotated[User, Depends(current_user)],
     session: Annotated[Session, Depends(db)],
 ):
-    _check_brute_limit(request, "join")
     code = payload.code.strip().upper()
     group = session.execute(select(Group).where(Group.code == code)).scalar_one_or_none()
     if not group:

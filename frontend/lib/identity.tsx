@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Crypto from 'expo-crypto';
 import React, {
   createContext,
   useCallback,
@@ -39,25 +38,37 @@ const ADJ = [
 const randomName = () =>
   `${ADJ[Math.floor(Math.random() * ADJ.length)]} ${ANIMALS[Math.floor(Math.random() * ANIMALS.length)]}`;
 
-const randomToken = () => {
-  const bytes = Crypto.getRandomBytes(32);
+// Prefer Web Crypto when available (web + RN 0.81+); fall back to Math.random
+// only for environments that lack it. Token entropy stays at 256 bits when
+// crypto is present.
+const getRandomBytes = (n: number): Uint8Array => {
+  const out = new Uint8Array(n);
+  const g: any = globalThis as any;
+  if (g.crypto?.getRandomValues) {
+    g.crypto.getRandomValues(out);
+    return out;
+  }
+  for (let i = 0; i < n; i++) out[i] = Math.floor(Math.random() * 256);
+  return out;
+};
+
+const toHex = (bytes: Uint8Array) => {
   let s = '';
   for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
   return s;
 };
 
+const randomToken = () => toHex(getRandomBytes(32));
+
 const safeUuid = () => {
-  try {
-    // expo-crypto polyfills randomUUID at runtime
-    return Crypto.randomUUID();
-  } catch {
-    // very crude fallback
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
-  }
+  const g: any = globalThis as any;
+  if (g.crypto?.randomUUID) return g.crypto.randomUUID();
+  // RFC4122 v4 from random bytes
+  const b = getRandomBytes(16);
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = toHex(b);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 };
 
 export function IdentityProvider({ children }: { children: React.ReactNode }) {
