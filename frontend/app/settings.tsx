@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ABOUT_LINES, PROBE_FAIL, PROBE_OK, pickRandom } from '@/lib/copy';
 import {
   ACCENT_PRESETS,
   DEFAULT_API_BASE_URL,
@@ -74,15 +75,17 @@ export default function SettingsScreen() {
       if (!mountedRef.current || abortRef.current !== controller) return;
       setProbe(
         res.ok && data?.ok
-          ? { ok: true, message: `Connected · model ${data.model ?? 'unknown'}` }
-          : { ok: false, message: `Server replied ${res.status}` },
+          ? { ok: true, message: pickRandom(PROBE_OK) }
+          : { ok: false, message: `${pickRandom(PROBE_FAIL)} (${res.status})` },
       );
     } catch (e: any) {
       if (e?.name === 'AbortError') {
-        if (mountedRef.current) setProbe({ ok: false, message: 'Timed out' });
+        if (mountedRef.current)
+          setProbe({ ok: false, message: 'Timed out — the committee is screening calls.' });
         return;
       }
-      if (mountedRef.current) setProbe({ ok: false, message: e?.message ?? 'Failed to reach server' });
+      if (mountedRef.current)
+        setProbe({ ok: false, message: `${pickRandom(PROBE_FAIL)} ${e?.message ?? ''}`.trim() });
     } finally {
       clearTimeout(timeout);
       if (mountedRef.current && abortRef.current === controller) {
@@ -103,9 +106,9 @@ export default function SettingsScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>API</Text>
+            <Text style={styles.sectionTitle}>Server</Text>
             <Text style={styles.sectionHint}>
-              The Chopped Rating service the app talks to.
+              Where the rude opinions come from.
             </Text>
 
             <View style={styles.field}>
@@ -199,7 +202,9 @@ export default function SettingsScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Accent</Text>
-            <Text style={styles.sectionHint}>Pick a color for buttons and highlights.</Text>
+            <Text style={styles.sectionHint}>
+              Pick a color. The roast will not be softer for it.
+            </Text>
             <View style={styles.swatchGrid}>
               {ACCENT_PRESETS.map((p) => {
                 const selected = p.value.toLowerCase() === accent.toLowerCase();
@@ -227,11 +232,7 @@ export default function SettingsScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>About</Text>
-            <Text style={styles.sectionHint}>
-              Chopped Ranking — for entertainment purposes only. The model is a
-              public face-attractiveness classifier; results are not a measure
-              of any person&apos;s actual appearance.
-            </Text>
+            <Text style={styles.sectionHint}>{pickRandom(ABOUT_LINES)}</Text>
           </View>
         </ScrollView>
 

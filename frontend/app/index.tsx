@@ -15,6 +15,14 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  EMPTY_HINTS,
+  ERROR_PREFIXES,
+  RETRY_LABELS,
+  SUBTITLES,
+  SUCCESS_QUIPS,
+  pickRandom,
+} from '@/lib/copy';
 import { LOADING_MESSAGES } from '@/lib/loading-messages';
 import { isApiBaseUrlValid, normalizeApiBaseUrl, useSettings } from '@/lib/settings';
 
@@ -46,6 +54,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
+
+  // pick once per mount so they don't flicker on re-render
+  const [subtitle] = useState(() => pickRandom(SUBTITLES));
+  const [emptyHint] = useState(() => pickRandom(EMPTY_HINTS));
+  const [retryLabel, setRetryLabel] = useState(() => pickRandom(RETRY_LABELS));
+  const [successQuip, setSuccessQuip] = useState(() => pickRandom(SUCCESS_QUIPS));
 
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
@@ -168,11 +182,16 @@ export default function Home() {
       }
       if (mountedRef.current && abortRef.current === controller) {
         setResult(data as RatingResponse);
+        setSuccessQuip(pickRandom(SUCCESS_QUIPS));
+        setRetryLabel(pickRandom(RETRY_LABELS));
         buzz(Haptics.ImpactFeedbackStyle.Heavy);
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
-      if (mountedRef.current) setError(e?.message ?? 'Request failed');
+      if (mountedRef.current) {
+        const msg = e?.message ?? 'something broke';
+        setError(`${pickRandom(ERROR_PREFIXES)}: ${msg}`);
+      }
     } finally {
       if (mountedRef.current && abortRef.current === controller) {
         setLoading(false);
@@ -209,9 +228,7 @@ export default function Home() {
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>Chopped Ranking</Text>
-            <Text style={styles.subtitle}>
-              For entertainment purposes only.
-            </Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
           </View>
           <Pressable
             accessibilityLabel="Open settings"
@@ -243,7 +260,7 @@ export default function Home() {
           >
             <Ionicons name="warning-outline" size={18} color="#0b0b0f" />
             <Text style={styles.configBannerText}>
-              Tap to set your server URL before rating.
+              No server, no roast. Tap to point me somewhere.
             </Text>
             <Ionicons name="chevron-forward" size={18} color="#0b0b0f" />
           </Pressable>
@@ -256,9 +273,7 @@ export default function Home() {
           ) : (
             <View style={styles.canvasEmpty}>
               <Ionicons name="sparkles" size={42} color={accent} />
-              <Text style={styles.canvasHint}>
-                Drop a selfie to find out your chopped score.
-              </Text>
+              <Text style={styles.canvasHint}>{emptyHint}</Text>
             </View>
           )}
         </View>
@@ -305,6 +320,7 @@ export default function Home() {
 
         {result && (
           <View style={[styles.card, { borderColor: `${scoreColor}55` }]}>
+            <Text style={styles.successQuip}>{successQuip}</Text>
             <View style={styles.scoreRow}>
               <View
                 style={[
@@ -349,7 +365,7 @@ export default function Home() {
                 pressed && { opacity: 0.6 },
               ]}
             >
-              <Text style={styles.linkBtnText}>Try another</Text>
+              <Text style={styles.linkBtnText}>{retryLabel}</Text>
             </Pressable>
           </View>
         )}
@@ -538,4 +554,10 @@ const styles = StyleSheet.create({
   roast: { color: '#fff', fontSize: 15, flex: 1, lineHeight: 21 },
   linkBtn: { alignSelf: 'center', marginTop: 16, padding: 8 },
   linkBtnText: { color: '#9c9caa', fontWeight: '600' },
+  successQuip: {
+    color: '#9c9caa',
+    fontStyle: 'italic',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
 });
