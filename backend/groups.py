@@ -260,12 +260,18 @@ async def create_entry(
         if len(content) > MAX_UPLOAD_BYTES:
             raise HTTPException(status_code=413, detail="File too large")
 
+        # Decode + apply EXIF orientation. Don't use a `with` block here:
+        # `exif_transpose` and `convert` can return lazy views that still
+        # reference the source file. Close intermediates after `pil.load()`.
         try:
-            with Image.open(BytesIO(content)) as raw:
-                raw.load()
-                # Apply EXIF orientation so phone-portrait shots aren't sideways
-                oriented = ImageOps.exif_transpose(raw)
-                pil = oriented.convert("RGB") if oriented is not raw else raw.convert("RGB")
+            raw = Image.open(BytesIO(content))
+            raw.load()
+            oriented = ImageOps.exif_transpose(raw) or raw
+            pil = oriented.convert("RGB")
+            pil.load()
+            if oriented is not raw:
+                oriented.close()
+            raw.close()
         except (UnidentifiedImageError, OSError):
             raise HTTPException(status_code=400, detail="Invalid image file")
 
