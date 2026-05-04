@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { normalizeApiBaseUrl, useSettings } from '@/lib/settings';
+import { isApiBaseUrlValid, normalizeApiBaseUrl, useSettings } from '@/lib/settings';
 
 type RatingResponse = {
   model: string;
@@ -106,8 +106,12 @@ export default function Home() {
   const rate = useCallback(async () => {
     if (!imageUri || !hydrated) return;
     const base = normalizeApiBaseUrl(settings.apiBaseUrl);
-    if (!base) {
-      setError('API URL is not set. Open Settings to configure it.');
+    if (!isApiBaseUrlValid(base)) {
+      setError(
+        Platform.OS === 'web'
+          ? 'API URL is not set. Open Settings to configure it.'
+          : 'API URL is not configured. Open Settings and enter the server URL (e.g. http://your-server:36726/api).',
+      );
       return;
     }
 
@@ -172,6 +176,8 @@ export default function Home() {
     [result, accent],
   );
 
+  const apiConfigured = hydrated && isApiBaseUrlValid(settings.apiBaseUrl);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView
@@ -202,6 +208,27 @@ export default function Home() {
             <Ionicons name="settings-outline" size={22} color="#fff" />
           </Pressable>
         </View>
+
+        {hydrated && !apiConfigured && (
+          <Pressable
+            onPress={() => {
+              buzz();
+              router.push('/settings');
+            }}
+            style={({ pressed }) => [
+              styles.configBanner,
+              pressed && { opacity: 0.85 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Configure API URL"
+          >
+            <Ionicons name="warning-outline" size={18} color="#0b0b0f" />
+            <Text style={styles.configBannerText}>
+              Tap to set your server URL before rating.
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color="#0b0b0f" />
+          </Pressable>
+        )}
 
         <View style={styles.centered}>
         <View style={styles.canvas}>
@@ -370,6 +397,21 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
   kicker: { fontSize: 30, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
   subtitle: { color: '#9c9caa', marginTop: 2 },
+  configBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#feca57',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  configBannerText: {
+    flex: 1,
+    color: '#0b0b0f',
+    fontWeight: '700',
+    fontSize: 14,
+  },
   iconBtn: {
     width: 40,
     height: 40,

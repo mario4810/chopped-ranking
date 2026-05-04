@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   ACCENT_PRESETS,
   DEFAULT_API_BASE_URL,
+  isApiBaseUrlValid,
   normalizeApiBaseUrl,
   useSettings,
 } from '@/lib/settings';
@@ -116,12 +117,25 @@ export default function SettingsScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
-                placeholder={DEFAULT_API_BASE_URL}
+                placeholder={
+                  Platform.OS === 'web'
+                    ? '/api'
+                    : 'http://your-server:36726/api'
+                }
                 placeholderTextColor="#666"
               />
               <Text style={styles.helper}>
-                Default: {DEFAULT_API_BASE_URL}
+                {Platform.OS === 'web'
+                  ? 'Default: /api (talks to the same origin via the reverse proxy).'
+                  : 'Mobile needs an absolute URL — e.g. http://192.168.1.10:36726/api.'}
               </Text>
+              {draft.trim() !== '' && !isApiBaseUrlValid(draft) && (
+                <Text style={styles.helperWarn}>
+                  {Platform.OS === 'web'
+                    ? 'Use a relative path like /api or an http(s):// URL.'
+                    : 'Mobile builds need an absolute http(s):// URL.'}
+                </Text>
+              )}
             </View>
 
             <View style={styles.row}>
@@ -294,6 +308,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   helper: { color: '#666', fontSize: 12 },
+  helperWarn: { color: '#feca57', fontSize: 12 },
   row: { flexDirection: 'row', gap: 10 },
   btn: {
     flexDirection: 'row',

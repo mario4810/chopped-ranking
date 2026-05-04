@@ -8,8 +8,20 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { Platform } from 'react-native';
 
-export const DEFAULT_API_BASE_URL = '/api';
+// Web is served same-origin behind a reverse proxy, so a relative path works.
+// Native builds have no origin and must point at an absolute URL — left blank
+// so the user is forced to configure it in Settings on first launch.
+export const DEFAULT_API_BASE_URL =
+  Platform.OS === 'web' ? '/api' : '';
+
+export const isApiBaseUrlValid = (url: string) => {
+  const v = url.trim();
+  if (!v) return false;
+  if (v.startsWith('/')) return Platform.OS === 'web';
+  return /^https?:\/\//i.test(v);
+};
 const STORAGE_KEY = 'chopped:settings:v1';
 
 export const ACCENT_PRESETS = [
@@ -60,10 +72,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw && mounted.current) {
           const parsed = JSON.parse(raw) as Partial<Settings>;
+          const cleaned = normalizeApiBaseUrl(parsed.apiBaseUrl || '');
           setSettings({
-            apiBaseUrl:
-              normalizeApiBaseUrl(parsed.apiBaseUrl || '') ||
-              DEFAULT_API_BASE_URL,
+            apiBaseUrl: cleaned || DEFAULT_API_BASE_URL,
             accent: parsed.accent || DEFAULT_ACCENT,
           });
         }
@@ -89,8 +100,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const setApiBaseUrl = useCallback(
     async (url: string) => {
-      const cleaned = normalizeApiBaseUrl(url) || DEFAULT_API_BASE_URL;
-      await persist({ ...settings, apiBaseUrl: cleaned });
+      // empty input falls back to platform default ('/api' on web, '' on native)
+      const cleaned = normalizeApiBaseUrl(url);
+      await persist({ ...settings, apiBaseUrl: cleaned || DEFAULT_API_BASE_URL });
     },
     [persist, settings],
   );
