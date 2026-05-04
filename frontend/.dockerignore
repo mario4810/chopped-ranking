@@ -1,0 +1,11 @@
+node_modules
+.expo
+.expo-shared
+dist
+android
+ios
+.git
+.gitignore
+*.md
+Dockerfile
+.dockerignore

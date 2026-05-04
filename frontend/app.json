@@ -1,29 +1,42 @@
 {
   "expo": {
-    "name": "chopped",
+    "name": "Chopped Scanner",
     "slug": "chopped",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "chopped",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
+      "package": "ch.pianonic.chopped",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0b0b0f",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.CAMERA", "android.permission.READ_MEDIA_IMAGES"]
+    },
+    "ios": {
+      "bundleIdentifier": "ch.pianonic.chopped",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to take a selfie to rate.",
+        "NSPhotoLibraryUsageDescription": "Used to pick a photo to rate."
+      }
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Chopped Scanner",
+      "shortName": "Chopped",
+      "themeColor": "#0b0b0f",
+      "backgroundColor": "#0b0b0f",
+      "display": "standalone",
+      "orientation": "portrait"
     },
     "plugins": [
       "expo-router",
@@ -33,10 +46,17 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0b0b0f",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#0b0b0f"
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Used to take a selfie to rate.",
+          "photosPermission": "Used to pick a photo to rate."
         }
       ]
     ],

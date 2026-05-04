@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chopped Scanner">
+  <title>Chopped Scanner</title>
+  <rect width="512" height="512" rx="112" ry="112" fill="#0b0b0f"/>
+  <circle cx="256" cy="256" r="156" fill="#ff7b7b"/>
+  <circle cx="218" cy="222" r="14" fill="#0b0b0f"/>
+  <circle cx="294" cy="222" r="14" fill="#0b0b0f"/>
+  <rect x="100" y="280" width="312" height="20" rx="10" fill="#0b0b0f"/>
+</svg>

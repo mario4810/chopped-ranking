@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Chopped Scanner">
+  <title>Chopped Scanner foreground</title>
+  <circle cx="512" cy="512" r="248" fill="#ff7b7b"/>
+  <circle cx="452" cy="458" r="22" fill="#0b0b0f"/>
+  <circle cx="572" cy="458" r="22" fill="#0b0b0f"/>
+  <rect x="280" y="550" width="464" height="32" rx="16" fill="#0b0b0f"/>
+</svg>

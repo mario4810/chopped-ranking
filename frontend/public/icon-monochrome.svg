@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Chopped Scanner monochrome">
+  <title>Chopped Scanner monochrome</title>
+  <defs>
+    <mask id="cutouts">
+      <rect width="1024" height="1024" fill="black"/>
+      <circle cx="512" cy="512" r="248" fill="white"/>
+      <circle cx="452" cy="458" r="22" fill="black"/>
+      <circle cx="572" cy="458" r="22" fill="black"/>
+      <rect x="280" y="550" width="464" height="32" rx="16" fill="black"/>
+    </mask>
+  </defs>
+  <rect width="1024" height="1024" fill="#FFFFFF" mask="url(#cutouts)"/>
+</svg>

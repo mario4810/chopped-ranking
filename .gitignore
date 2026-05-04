@@ -3,3 +3,12 @@ node_modules
 __pycache__
 .expo
 .vscode
+dist
+frontend/android
+frontend/ios
+*.apk
+*.aab
+.DS_Store
+.claude
+bun.lock
+yarn.lock

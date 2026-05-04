@@ -1,6 +1,9 @@
-fastapi
-uvicorn[standard]
-transformers
-torch
-pillow
-python-multipart
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.32,<0.33
+transformers>=4.46,<5
+torch==2.5.1+cpu
+pillow>=11,<12
+python-multipart>=0.0.20,<0.1
+slowapi>=0.1.9,<0.2
