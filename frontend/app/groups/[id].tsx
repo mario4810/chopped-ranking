@@ -106,18 +106,27 @@ export default function GroupLeaderboardScreen() {
 
   const onShareCode = useCallback(async () => {
     if (!groupCode) return;
-    const message = `Join my Chopped Ranking group with code ${groupCode}. Pretend you're not scared.`;
+    const g: any = globalThis as any;
+    const origin =
+      Platform.OS === 'web' && g.location?.origin
+        ? g.location.origin
+        : 'https://something.pianonic.ch';
+    const url = `${origin}/groups?code=${encodeURIComponent(groupCode)}`;
+    const message = `Join my Chopped Ranking group: ${url}\n(code: ${groupCode}). Pretend you're not scared.`;
     try {
       if (Platform.OS === 'web') {
-        const navAny: any = globalThis as any;
-        if (navAny.navigator?.share) {
-          await navAny.navigator.share({ title: 'Chopped Ranking', text: message });
+        if (g.navigator?.share) {
+          await g.navigator.share({
+            title: 'Chopped Ranking',
+            text: message,
+            url,
+          });
           return;
         }
-        await navAny.navigator?.clipboard?.writeText(groupCode);
-        Alert.alert('Code copied', `${groupCode} is in your clipboard.`);
+        await g.navigator?.clipboard?.writeText(url);
+        Alert.alert('Link copied', `${url} is in your clipboard.`);
       } else {
-        await Share.share({ message });
+        await Share.share({ message, url });
       }
     } catch {
       // user cancelled or share unavailable — silent

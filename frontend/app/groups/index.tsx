@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -27,6 +27,7 @@ import { useSettings } from '@/lib/settings';
 export default function GroupsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ code?: string }>();
   const { settings } = useSettings();
   const { ensure } = useIdentity();
   const accent = settings.accent;
@@ -92,21 +93,37 @@ export default function GroupsScreen() {
     }
   };
 
-  const onJoin = async () => {
-    const code = joinCode.trim();
-    if (!code) return;
-    setBusy(true);
-    try {
-      const id = await ensure();
-      const g = await joinGroup(settings.apiBaseUrl, id, code);
-      setJoinCode('');
-      router.push({ pathname: '/groups/[id]', params: { id: g.id } });
-    } catch (e: any) {
-      Alert.alert('Could not join', e?.message ?? 'unknown');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const onJoin = useCallback(
+    async (overrideCode?: string) => {
+      const code = (overrideCode ?? joinCode).trim();
+      if (!code) return;
+      setBusy(true);
+      try {
+        const id = await ensure();
+        const g = await joinGroup(settings.apiBaseUrl, id, code);
+        setJoinCode('');
+        router.push({ pathname: '/groups/[id]', params: { id: g.id } });
+      } catch (e: any) {
+        Alert.alert('Could not join', e?.message ?? 'unknown');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [ensure, joinCode, router, settings.apiBaseUrl],
+  );
+
+  // Auto-fill (and auto-join) when arriving via a shared link ?code=XXXX
+  const autoJoinedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const incoming = (params.code ?? '').toString().trim().toUpperCase();
+    if (!incoming) return;
+    setJoinCode(incoming);
+    if (autoJoinedRef.current === incoming) return;
+    autoJoinedRef.current = incoming;
+    // strip the param from the URL so a refresh doesn't loop the auto-join
+    router.setParams({ code: undefined as any });
+    onJoin(incoming);
+  }, [params.code, onJoin, router]);
 
   const onLeaveOrDelete = (g: GroupOut) => {
     Alert.alert(
@@ -187,7 +204,7 @@ export default function GroupsScreen() {
                   style={[styles.input, { flex: 1 }]}
                 />
                 <Pressable
-                  onPress={onJoin}
+                  onPress={() => onJoin()}
                   disabled={busy || !joinCode.trim()}
                   style={({ pressed }) => [
                     styles.btnGhost,
