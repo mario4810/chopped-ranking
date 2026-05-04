@@ -9,7 +9,7 @@ import React, {
   useState,
 } from 'react';
 
-export const DEFAULT_API_BASE_URL = 'https://chopped.pianonic.ch';
+export const DEFAULT_API_BASE_URL = '/api';
 const STORAGE_KEY = 'chopped:settings:v1';
 
 export const ACCENT_PRESETS = [
