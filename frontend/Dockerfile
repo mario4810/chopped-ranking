@@ -25,6 +25,6 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1
 
 LABEL org.opencontainers.image.title="chopped-ranking-web" \
-      org.opencontainers.image.description="Chopped Scanner PWA" \
+      org.opencontainers.image.description="Chopped Ranking PWA" \
       org.opencontainers.image.source="https://github.com/PianoNic/chopped-ranking" \
       org.opencontainers.image.licenses="MIT"

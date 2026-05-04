@@ -214,7 +214,7 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>About</Text>
             <Text style={styles.sectionHint}>
-              Chopped Scanner — for entertainment purposes only. The model is a
+              Chopped Ranking — for entertainment purposes only. The model is a
               public face-attractiveness classifier; results are not a measure
               of any person&apos;s actual appearance.
             </Text>

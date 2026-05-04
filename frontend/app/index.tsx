@@ -183,7 +183,7 @@ export default function Home() {
       >
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>Chopped Scanner</Text>
+            <Text style={styles.kicker}>Chopped Ranking</Text>
             <Text style={styles.subtitle}>
               For entertainment purposes only.
             </Text>

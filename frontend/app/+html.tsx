@@ -18,7 +18,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta
           name="description"
-          content="Chopped Scanner — how chopped are you? For entertainment only."
+          content="Chopped Ranking — how chopped are you? For entertainment only."
         />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />

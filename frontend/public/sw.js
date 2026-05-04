@@ -1,4 +1,4 @@
-// Chopped Scanner service worker
+// Chopped Ranking service worker
 // Strategy:
 //  - precache the app shell on install
 //  - network-first for HTML/navigations (so updates ship fast)
