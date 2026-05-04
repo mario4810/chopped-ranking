@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LOADING_MESSAGES } from '@/lib/loading-messages';
 import { isApiBaseUrlValid, normalizeApiBaseUrl, useSettings } from '@/lib/settings';
 
 type RatingResponse = {
@@ -44,6 +45,7 @@ export default function Home() {
   const [result, setResult] = useState<RatingResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
 
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
@@ -56,6 +58,23 @@ export default function Home() {
       abortRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!loading) return;
+    setLoadingMessage(
+      LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)],
+    );
+    const id = setInterval(() => {
+      setLoadingMessage((prev) => {
+        let next = prev;
+        while (next === prev) {
+          next = LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)];
+        }
+        return next;
+      });
+    }, 2200);
+    return () => clearInterval(id);
+  }, [loading]);
 
   const buzz = useCallback(
     (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
@@ -273,7 +292,7 @@ export default function Home() {
         {loading && (
           <View style={styles.loaderWrap}>
             <ActivityIndicator size="large" color={accent} />
-            <Text style={styles.loaderText}>Consulting the chopped committee…</Text>
+            <Text style={styles.loaderText}>{loadingMessage}</Text>
           </View>
         )}
 
