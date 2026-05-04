@@ -83,6 +83,7 @@ export default function GroupsScreen() {
     setBusy(true);
     try {
       const id = await ensure();
+      await upsertUser(settings.apiBaseUrl, id).catch(() => undefined);
       const g = await createGroup(settings.apiBaseUrl, id, name);
       setCreateName('');
       router.push({ pathname: '/groups/[id]', params: { id: g.id } });
@@ -100,6 +101,9 @@ export default function GroupsScreen() {
       setBusy(true);
       try {
         const id = await ensure();
+        // Always register first so /groups/join can authorize. Without this the
+        // auto-join from a shared link can race AuthBootstrap and 401 silently.
+        await upsertUser(settings.apiBaseUrl, id).catch(() => undefined);
         const g = await joinGroup(settings.apiBaseUrl, id, code);
         setJoinCode('');
         router.push({ pathname: '/groups/[id]', params: { id: g.id } });
