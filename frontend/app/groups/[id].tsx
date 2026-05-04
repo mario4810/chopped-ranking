@@ -153,8 +153,21 @@ export default function GroupLeaderboardScreen() {
       setSubmitting(true);
       try {
         const me = await ensure();
-        await submitGroupEntry(settings.apiBaseUrl, me, id, res.assets[0].uri);
-        await refresh();
+        const created = await submitGroupEntry(
+          settings.apiBaseUrl,
+          me,
+          id,
+          res.assets[0].uri,
+        );
+        // Optimistic prepend so the new entry shows immediately, sorted by score
+        if (mountedRef.current) {
+          setEntries((prev) => {
+            const merged = [created, ...prev.filter((e) => e.id !== created.id)];
+            return merged.sort((a, b) => b.score - a.score);
+          });
+        }
+        // Background refresh to reconcile with server (e.g. other people's entries)
+        refresh().catch(() => undefined);
       } catch (e: any) {
         Alert.alert('Submit failed', e?.message ?? 'unknown');
       } finally {

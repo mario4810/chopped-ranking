@@ -12,7 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -263,7 +263,9 @@ async def create_entry(
         try:
             with Image.open(BytesIO(content)) as raw:
                 raw.load()
-                pil = raw.convert("RGB")
+                # Apply EXIF orientation so phone-portrait shots aren't sideways
+                oriented = ImageOps.exif_transpose(raw)
+                pil = oriented.convert("RGB") if oriented is not raw else raw.convert("RGB")
         except (UnidentifiedImageError, OSError):
             raise HTTPException(status_code=400, detail="Invalid image file")
 
@@ -280,13 +282,11 @@ async def create_entry(
         chopped_score = round(not_attractive_prob * 100)
         label = build_label(chopped_score)
 
-        # save image with a non-guessable filename
+        # save image with a non-guessable filename, with EXIF rotation applied
         token = secrets.token_urlsafe(16)
         filename = f"{token}.jpg"
         out_path = Path(UPLOADS_DIR) / filename
-        with Image.open(BytesIO(content)) as src:
-            src.load()
-            src.convert("RGB").save(out_path, format="JPEG", quality=88, optimize=True)
+        pil.save(out_path, format="JPEG", quality=88, optimize=True)
 
         entry = Entry(
             id=str(uuid.uuid4()),
