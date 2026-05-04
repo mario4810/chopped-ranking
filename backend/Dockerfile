@@ -54,7 +54,7 @@ WORKDIR /app
 
 COPY --from=builder /install /usr/local
 COPY --from=model --chown=app:app /models /models
-COPY --chown=app:app api.py ./
+COPY --chown=app:app *.py ./
 
 USER app
 
