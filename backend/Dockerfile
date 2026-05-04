@@ -48,7 +48,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system app \
-    && useradd --system --gid app --home /app --shell /usr/sbin/nologin app
+    && useradd --system --gid app --home /app --shell /usr/sbin/nologin app \
+    && mkdir -p /data/uploads \
+    && chown -R app:app /data
 
 WORKDIR /app
 
@@ -57,6 +59,8 @@ COPY --from=model --chown=app:app /models /models
 COPY --chown=app:app *.py ./
 
 USER app
+
+VOLUME ["/data"]
 
 EXPOSE 8000
 
