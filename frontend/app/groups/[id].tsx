@@ -88,8 +88,9 @@ export default function GroupLeaderboardScreen() {
         listGroups(settings.apiBaseUrl, me, controller.signal).catch(() => []),
       ]);
       if (mountedRef.current) {
-        setEntries(data);
-        const here = groups.find((g) => g.id === id);
+        setEntries(Array.isArray(data) ? data : []);
+        const list = Array.isArray(groups) ? groups : [];
+        const here = list.find((g) => g.id === id);
         setGroupCode(here?.code ?? null);
       }
     } catch (e: any) {
@@ -185,15 +186,15 @@ export default function GroupLeaderboardScreen() {
           id,
           res.assets[0].uri,
         );
-        // Optimistic prepend so the new entry shows immediately, sorted by score
+        // Insert into the leaderboard immediately. We deliberately do NOT call
+        // refresh() here — its abort-on-rerun race used to wipe this update.
+        // A subsequent navigation/focus will reconcile any missed peers.
         if (mountedRef.current) {
           setEntries((prev) => {
             const merged = [created, ...prev.filter((e) => e.id !== created.id)];
             return merged.sort((a, b) => b.score - a.score);
           });
         }
-        // Background refresh to reconcile with server (e.g. other people's entries)
-        refresh().catch(() => undefined);
       } catch (e: any) {
         Alert.alert('Submit failed', e?.message ?? 'unknown');
       } finally {

@@ -282,17 +282,17 @@ async def create_entry(
             attractive_prob, not_attractive_prob = await asyncio.to_thread(
                 classifier.predict, pil
             )
+
+            chopped_score = round(not_attractive_prob * 100)
+            label = build_label(chopped_score)
+
+            # save the same (already EXIF-corrected) image to disk
+            token = secrets.token_urlsafe(16)
+            filename = f"{token}.jpg"
+            out_path = Path(UPLOADS_DIR) / filename
+            pil.save(out_path, format="JPEG", quality=88, optimize=True)
         finally:
             pil.close()
-
-        chopped_score = round(not_attractive_prob * 100)
-        label = build_label(chopped_score)
-
-        # save image with a non-guessable filename, with EXIF rotation applied
-        token = secrets.token_urlsafe(16)
-        filename = f"{token}.jpg"
-        out_path = Path(UPLOADS_DIR) / filename
-        pil.save(out_path, format="JPEG", quality=88, optimize=True)
 
         entry = Entry(
             id=str(uuid.uuid4()),
@@ -365,6 +365,19 @@ def _group_out(session: Session, group: Group, user: User) -> GroupOut:
     )
 
 
+def _iso_utc(dt) -> str:
+    """ISO-8601 string that the browser interprets as UTC even if the
+    underlying datetime is naive (SQLite often round-trips tzinfo away)."""
+    if not dt:
+        return ""
+    s = dt.isoformat()
+    if s.endswith("+00:00"):
+        return s.replace("+00:00", "Z")
+    if not (s.endswith("Z") or "+" in s.split("T")[1] or "-" in s.split("T")[1]):
+        s += "Z"
+    return s
+
+
 def _entry_out(session: Session, entry: Entry, request: Request) -> EntryOut:
     user = session.get(User, entry.user_id)
     # Return a relative path; the client prefixes with its configured API base
@@ -375,6 +388,6 @@ def _entry_out(session: Session, entry: Entry, request: Request) -> EntryOut:
         user_name=user.name if user else "anon",
         score=entry.score,
         label=entry.label,
-        created_at=entry.created_at.isoformat() if entry.created_at else "",
+        created_at=_iso_utc(entry.created_at),
         image_url=f"/entries/{entry.id}/image",
     )
