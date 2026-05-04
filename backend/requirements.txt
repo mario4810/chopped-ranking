@@ -7,3 +7,5 @@ torch==2.5.1+cpu
 pillow>=11,<12
 python-multipart>=0.0.20,<0.1
 slowapi>=0.1.9,<0.2
+sqlalchemy>=2.0,<3
+aiosqlite>=0.20,<0.21

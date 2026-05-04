@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { IdentityProvider } from '@/lib/identity';
 import { SettingsProvider, useSettings } from '@/lib/settings';
 
 export const unstable_settings = {
@@ -31,6 +32,8 @@ function ThemedStack() {
           name="settings"
           options={{ title: 'Settings', presentation: 'modal' }}
         />
+        <Stack.Screen name="groups/index" options={{ title: 'Groups' }} />
+        <Stack.Screen name="groups/[id]" options={{ title: 'Leaderboard' }} />
       </Stack>
       <StatusBar style="light" />
     </ThemeProvider>
@@ -41,7 +44,9 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SettingsProvider>
-        <ThemedStack />
+        <IdentityProvider>
+          <ThemedStack />
+        </IdentityProvider>
       </SettingsProvider>
     </SafeAreaProvider>
   );

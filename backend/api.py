@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import random
 from contextlib import asynccontextmanager
 from io import BytesIO
 from typing import Any
@@ -73,6 +74,10 @@ _inflight: set[str] = set()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     classifier.load()
+    # init DB tables
+    from db import init_db  # noqa: WPS433 — lazy to avoid import-time IO
+
+    init_db()
     yield
 
 
@@ -92,55 +97,126 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS or ["*"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+from groups import router as groups_router  # noqa: E402
+
+app.include_router(groups_router)
 
 
 def build_label(score: int) -> str:
     if score >= 90:
-        return "catastrophically chopped"
+        return random.choice(
+            [
+                "catastrophically chopped",
+                "diplomatically chopped beyond repair",
+                "chopped with intent",
+                "biblically chopped",
+            ]
+        )
     if score >= 75:
-        return "severely chopped"
+        return random.choice(
+            [
+                "severely chopped",
+                "very much chopped, your honor",
+                "chopped, parboiled, then chopped again",
+            ]
+        )
     if score >= 60:
-        return "noticeably chopped"
+        return random.choice(
+            [
+                "noticeably chopped",
+                "casually chopped",
+                "moderately under indictment",
+            ]
+        )
     if score >= 40:
-        return "moderately chopped"
+        return random.choice(
+            [
+                "moderately chopped",
+                "neither here nor there, mostly there",
+                "officially mid",
+            ]
+        )
     if score >= 20:
-        return "lightly chopped"
-    return "biblically unchopped"
+        return random.choice(
+            [
+                "lightly chopped",
+                "barely chopped, suspicious",
+                "the committee is intrigued",
+            ]
+        )
+    return random.choice(
+        [
+            "biblically unchopped",
+            "frighteningly unchopped",
+            "unchopped, almost rude about it",
+        ]
+    )
+
+
+_ROASTS_SAVAGE = [
+    "The camera filed a formal complaint and a restraining order.",
+    "Jawline currently under investigation by international authorities.",
+    "Aura readings came back redacted.",
+    "Lighting filed for emotional distress.",
+    "Your selfie was used to scare ghosts in a focus group.",
+    "Mirror saw it once and crossed the street.",
+    "Front camera applied for hardship leave.",
+    "The chopped committee asked for a translator.",
+    "Three judges quit. The fourth is just laughing.",
+    "Filter technology has officially given up.",
+    "Even the AI took a deep breath before saying that.",
+]
+_ROASTS_ROUGH = [
+    "The angle tried its best. Its best was insufficient.",
+    "Some potential detected through the smoke and the mirrors.",
+    "Lighting was doing the heaviest lifting in this gym.",
+    "Aura is in beta. Please update.",
+    "Camera is begging for a different subject.",
+    "There's a face here. The committee admits that much.",
+    "Recoverable, with significant capital investment.",
+    "Honestly, it's a vibe. A concerning vibe.",
+]
+_ROASTS_MID = [
+    "Mixed report from the chopped committee. Two judges are napping.",
+    "Not doomed, not safe either. Schrodinger's face card.",
+    "A controversial performance, like every show you binge.",
+    "Could go either way; depends on the lighting and your friends' standards.",
+    "Solid mid. Reliable mid. The mid you want in a teammate.",
+]
+_ROASTS_OK = [
+    "Strong recovery signs detected. Keep doing whatever you're doing.",
+    "Face card mostly valid. Minor allegations only.",
+    "The committee leaned forward. Slightly.",
+    "Aura: passing the vibe check by a comfortable margin.",
+    "Borderline serving. Nobody's calling the police.",
+]
+_ROASTS_GOAT = [
+    "Unfair levels of facial stability detected.",
+    "The app is accusing you of pretty privilege in writing.",
+    "Completely unchopped behavior. Disgustingly so.",
+    "Front camera weeping with relief.",
+    "Symmetry is filing for tax-exempt status.",
+    "The committee suspects performance-enhancing genetics.",
+    "Three exes just received a notification.",
+]
 
 
 def build_roasts(score: int) -> list[str]:
     if score >= 80:
-        return [
-            "The camera filed a formal complaint.",
-            "Jawline currently under investigation.",
-            "Aura could not offset the damage.",
-        ]
-    if score >= 60:
-        return [
-            "The angle tried its best.",
-            "Some potential detected through the smoke.",
-            "Lighting was doing heavy lifting.",
-        ]
-    if score >= 40:
-        return [
-            "Mixed report from the chopped committee.",
-            "Not doomed, not safe either.",
-            "A controversial performance.",
-        ]
-    if score >= 20:
-        return [
-            "Strong recovery signs detected.",
-            "Face card mostly valid.",
-            "Minor chopped allegations only.",
-        ]
-    return [
-        "Unfair levels of facial stability detected.",
-        "The app is accusing you of pretty privilege.",
-        "Completely unchopped behavior.",
-    ]
+        pool = _ROASTS_SAVAGE
+    elif score >= 60:
+        pool = _ROASTS_ROUGH
+    elif score >= 40:
+        pool = _ROASTS_MID
+    elif score >= 20:
+        pool = _ROASTS_OK
+    else:
+        pool = _ROASTS_GOAT
+    return random.sample(pool, k=min(3, len(pool)))
 
 
 @app.get("/health")

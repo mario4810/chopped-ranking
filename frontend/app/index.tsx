@@ -16,15 +16,19 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  DAILY_DISCLAIMERS,
   EMPTY_HINTS,
   ERROR_PREFIXES,
   RETRY_LABELS,
   SUBTITLES,
   SUCCESS_QUIPS,
+  TITLE_EASTER_EGG_LINES,
+  VERDICT_BADGES,
   pickRandom,
 } from '@/lib/copy';
 import { LOADING_MESSAGES } from '@/lib/loading-messages';
 import { isApiBaseUrlValid, normalizeApiBaseUrl, useSettings } from '@/lib/settings';
+import { useStats } from '@/lib/stats';
 
 type RatingResponse = {
   model: string;
@@ -46,6 +50,7 @@ const tint = (score: number) => {
 export default function Home() {
   const router = useRouter();
   const { settings, hydrated } = useSettings();
+  const { stats, average, record } = useStats();
   const insets = useSafeAreaInsets();
   const accent = settings.accent;
 
@@ -58,8 +63,19 @@ export default function Home() {
   // pick once per mount so they don't flicker on re-render
   const [subtitle] = useState(() => pickRandom(SUBTITLES));
   const [emptyHint] = useState(() => pickRandom(EMPTY_HINTS));
+  const [disclaimer] = useState(() => pickRandom(DAILY_DISCLAIMERS));
   const [retryLabel, setRetryLabel] = useState(() => pickRandom(RETRY_LABELS));
   const [successQuip, setSuccessQuip] = useState(() => pickRandom(SUCCESS_QUIPS));
+  const [verdictBadge, setVerdictBadge] = useState(() => pickRandom(VERDICT_BADGES));
+
+  // animated score count-up on result reveal
+  const [displayScore, setDisplayScore] = useState(0);
+
+  // title easter egg
+  const titleTaps = useRef(0);
+  const titleResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [chefMode, setChefMode] = useState(false);
+  const [eggMessage, setEggMessage] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
@@ -71,6 +87,49 @@ export default function Home() {
       abortRef.current?.abort();
       abortRef.current = null;
     };
+  }, []);
+
+  // animate score count-up on each new result
+  useEffect(() => {
+    if (!result) {
+      setDisplayScore(0);
+      return;
+    }
+    const target = result.choppedScore;
+    const start = performance.now();
+    const duration = 850;
+    let raf = 0;
+    const step = (t: number) => {
+      const p = Math.min(1, (t - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplayScore(Math.round(target * eased));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [result]);
+
+  // cleanup easter egg timer on unmount
+  useEffect(() => {
+    return () => {
+      if (titleResetTimer.current) clearTimeout(titleResetTimer.current);
+    };
+  }, []);
+
+  const tapTitle = useCallback(() => {
+    if (titleResetTimer.current) clearTimeout(titleResetTimer.current);
+    titleTaps.current += 1;
+    titleResetTimer.current = setTimeout(() => {
+      titleTaps.current = 0;
+    }, 1500);
+    if (titleTaps.current >= 7) {
+      titleTaps.current = 0;
+      setChefMode(true);
+      setEggMessage(pickRandom(TITLE_EASTER_EGG_LINES));
+      if (Platform.OS !== 'web')
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setTimeout(() => setEggMessage(null), 4000);
+    }
   }, []);
 
   useEffect(() => {
@@ -181,9 +240,12 @@ export default function Home() {
         throw new Error(data?.detail || `Request failed (${res.status})`);
       }
       if (mountedRef.current && abortRef.current === controller) {
-        setResult(data as RatingResponse);
+        const r = data as RatingResponse;
+        setResult(r);
         setSuccessQuip(pickRandom(SUCCESS_QUIPS));
         setRetryLabel(pickRandom(RETRY_LABELS));
+        setVerdictBadge(pickRandom(VERDICT_BADGES));
+        record(r.choppedScore);
         buzz(Haptics.ImpactFeedbackStyle.Heavy);
       }
     } catch (e: any) {
@@ -226,10 +288,25 @@ export default function Home() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>Chopped Ranking</Text>
+          <Pressable onPress={tapTitle} style={{ flex: 1 }}>
+            <Text style={styles.kicker}>
+              Chopped Ranking{chefMode ? ' 🔪' : ''}
+            </Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
-          </View>
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Open groups"
+            onPress={() => {
+              buzz();
+              router.push('/groups');
+            }}
+            style={({ pressed }) => [
+              styles.iconBtn,
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Ionicons name="people-outline" size={22} color="#fff" />
+          </Pressable>
           <Pressable
             accessibilityLabel="Open settings"
             onPress={() => {
@@ -244,6 +321,20 @@ export default function Home() {
             <Ionicons name="settings-outline" size={22} color="#fff" />
           </Pressable>
         </View>
+
+        {stats.total > 0 && (
+          <View style={styles.statsChip}>
+            <Text style={styles.statsChipText}>
+              Lifetime: {stats.total} judgement{stats.total === 1 ? '' : 's'} · avg {average} · best {stats.best} · worst {stats.worst}
+            </Text>
+          </View>
+        )}
+
+        {eggMessage && (
+          <View style={styles.eggBox}>
+            <Text style={styles.eggText}>👨‍🍳 {eggMessage}</Text>
+          </View>
+        )}
 
         {hydrated && !apiConfigured && (
           <Pressable
@@ -329,7 +420,7 @@ export default function Home() {
                 ]}
               >
                 <Text style={[styles.scoreNum, { color: scoreColor }]}>
-                  {result.choppedScore}
+                  {displayScore}
                 </Text>
                 <Text style={styles.scoreSlash}>/100</Text>
               </View>
@@ -337,6 +428,11 @@ export default function Home() {
                 <Text style={[styles.label, { color: scoreColor }]}>
                   {result.label}
                 </Text>
+                <View style={[styles.badge, { borderColor: `${scoreColor}99` }]}>
+                  <Text style={[styles.badgeText, { color: scoreColor }]}>
+                    · {verdictBadge} ·
+                  </Text>
+                </View>
                 <Text style={styles.meta}>
                   attractive {(result.attractiveProbability * 100).toFixed(1)}%
                 </Text>
@@ -370,6 +466,7 @@ export default function Home() {
           </View>
         )}
         </View>
+        <Text style={styles.disclaimer}>{disclaimer}</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -559,5 +656,40 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: 12,
     textAlign: 'center',
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 6,
+  },
+  badgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+  statsChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#16161d',
+    borderColor: '#23232f',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  statsChipText: { color: '#9c9caa', fontSize: 12, fontWeight: '600' },
+  eggBox: {
+    backgroundColor: '#1c1c25',
+    borderColor: '#feca5755',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  eggText: { color: '#feca57', fontSize: 14, fontWeight: '700' },
+  disclaimer: {
+    marginTop: 20,
+    textAlign: 'center',
+    fontSize: 11,
+    color: '#5a5a66',
+    fontStyle: 'italic',
   },
 });
