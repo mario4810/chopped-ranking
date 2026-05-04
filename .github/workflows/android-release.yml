@@ -42,6 +42,19 @@ jobs:
           EXPO_NO_TELEMETRY: 1
         run: npx expo prebuild --platform android --no-install --clean
 
+      - name: Tune Gradle JVM
+        run: |
+          cat >> frontend/android/gradle.properties <<'EOF'
+
+          # CI-only Gradle tuning (appended after expo prebuild)
+          org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+          org.gradle.parallel=true
+          org.gradle.daemon=false
+          org.gradle.configureondemand=true
+          EOF
+        working-directory: ${{ github.workspace }}
+        shell: bash
+
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -53,7 +66,7 @@ jobs:
 
       - name: Assemble debug APK
         working-directory: frontend/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Locate APK
         id: apk
