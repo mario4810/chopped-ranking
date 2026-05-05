@@ -205,7 +205,16 @@ export default function GroupLeaderboardScreen() {
     [ensure, id, refresh, settings.apiBaseUrl],
   );
 
-  if (!hydrated) return null;
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+        <View style={styles.bootWrap}>
+          <ActivityIndicator color={accent} />
+          <Text style={styles.bootText}>Warming up the chopping block…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
@@ -447,6 +456,14 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#ffb4b4', flex: 1 },
   headerBtn: { marginRight: 12, padding: 4 },
+  bootWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 32,
+  },
+  bootText: { color: '#9c9caa', fontSize: 13 },
   modalScrim: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
