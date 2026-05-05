@@ -74,36 +74,37 @@ export default function GroupLeaderboardScreen() {
     };
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (!id) return;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+  // Initial load: fire once when both hydrated and id are ready, with a
+  // cancel flag (NOT abortRef) so the in-flight fetch can't be cancelled by
+  // a stale-deps re-render of `refresh`.
+  useEffect(() => {
+    if (!hydrated || !id) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      const me = await ensure();
-      const [data, groups] = await Promise.all([
-        getLeaderboard(settings.apiBaseUrl, me, id, controller.signal),
-        listGroups(settings.apiBaseUrl, me, controller.signal).catch(() => []),
-      ]);
-      if (mountedRef.current) {
+    (async () => {
+      try {
+        const me = await ensure();
+        const [data, groups] = await Promise.all([
+          getLeaderboard(settings.apiBaseUrl, me, id),
+          listGroups(settings.apiBaseUrl, me).catch(() => []),
+        ]);
+        if (cancelled) return;
         setEntries(Array.isArray(data) ? data : []);
         const list = Array.isArray(groups) ? groups : [];
         const here = list.find((g) => g.id === id);
         setGroupCode(here?.code ?? null);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? 'Could not load leaderboard');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (e: any) {
-      if (e?.name !== 'AbortError' && mountedRef.current)
-        setError(e?.message ?? 'Could not load leaderboard');
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
-  }, [ensure, id, settings.apiBaseUrl]);
-
-  useEffect(() => {
-    if (hydrated) refresh();
-  }, [hydrated, refresh]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, id, settings.apiBaseUrl]);
 
   const onShareCode = useCallback(async () => {
     if (!groupCode) return;
