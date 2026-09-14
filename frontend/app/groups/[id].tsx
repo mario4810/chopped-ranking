@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { EntryOut, getLeaderboard, listGroups, submitGroupEntry } from '@/lib/api';
 import { useIdentity } from '@/lib/identity';
+import { compressImageUri } from '@/lib/image';
 import { normalizeApiBaseUrl, useSettings } from '@/lib/settings';
 
 const tint = (score: number) => {
@@ -181,11 +182,12 @@ export default function GroupLeaderboardScreen() {
       setSubmitting(true);
       try {
         const me = await ensure();
+        const uri = await compressImageUri(res.assets[0]);
         const created = await submitGroupEntry(
           settings.apiBaseUrl,
           me,
           id,
-          res.assets[0].uri,
+          uri,
         );
         // Insert into the leaderboard immediately. We deliberately do NOT call
         // refresh() here — its abort-on-rerun race used to wipe this update.

@@ -26,6 +26,7 @@ import {
   VERDICT_BADGES,
   pickRandom,
 } from '@/lib/copy';
+import { compressImageUri } from '@/lib/image';
 import { LOADING_MESSAGES } from '@/lib/loading-messages';
 import { isApiBaseUrlValid, normalizeApiBaseUrl, useSettings } from '@/lib/settings';
 import { useStats } from '@/lib/stats';
@@ -194,7 +195,9 @@ export default function Home() {
             ? await ImagePicker.launchCameraAsync(opts)
             : await ImagePicker.launchImageLibraryAsync(opts);
         if (!res.canceled && res.assets[0] && mountedRef.current) {
-          setImageUri(res.assets[0].uri);
+          const uri = await compressImageUri(res.assets[0]);
+          if (!mountedRef.current) return;
+          setImageUri(uri);
           setResult(null);
           setError(null);
           buzz();
