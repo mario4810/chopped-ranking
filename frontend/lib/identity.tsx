@@ -75,6 +75,21 @@ export function IdentityProvider({ children }: { children: React.ReactNode }) {
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const mounted = useRef(true);
+  const identityRef = useRef<Identity | null>(null);
+
+  // ensure() must never fabricate a new identity while the AsyncStorage read
+  // below is still in flight — otherwise the fabricated identity's write can
+  // land after the real one is loaded, permanently clobbering the saved
+  // identity (and name/token) in storage. This promise lets ensure() wait
+  // for hydration to finish before deciding whether an identity exists.
+  const hydrationRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
+  if (!hydrationRef.current) {
+    let resolve!: () => void;
+    const promise = new Promise<void>((res) => {
+      resolve = res;
+    });
+    hydrationRef.current = { promise, resolve };
+  }
 
   useEffect(() => {
     mounted.current = true;
@@ -84,12 +99,14 @@ export function IdentityProvider({ children }: { children: React.ReactNode }) {
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<Identity>;
           if (parsed.userId && parsed.token && parsed.name) {
+            identityRef.current = parsed as Identity;
             if (mounted.current) setIdentity(parsed as Identity);
           }
         }
       } catch {}
       finally {
         if (mounted.current) setHydrated(true);
+        hydrationRef.current?.resolve();
       }
     })();
     return () => {
@@ -98,22 +115,34 @@ export function IdentityProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persist = useCallback(async (next: Identity) => {
+    identityRef.current = next;
     setIdentity(next);
     try {
       await AsyncStorage.setItem(KEY, JSON.stringify(next));
     } catch {}
   }, []);
 
+  // Dedupes concurrent ensure() calls on a genuinely fresh install (no
+  // identity ever persisted) so two callers racing right after hydration
+  // don't each fabricate a different identity.
+  const creatingRef = useRef<Promise<Identity> | null>(null);
+
   const ensure = useCallback(async (): Promise<Identity> => {
-    if (identity) return identity;
-    const next: Identity = {
-      userId: safeUuid(),
-      token: randomToken(),
-      name: randomName(),
-    };
-    await persist(next);
-    return next;
-  }, [identity, persist]);
+    await hydrationRef.current?.promise;
+    if (identityRef.current) return identityRef.current;
+    if (!creatingRef.current) {
+      creatingRef.current = (async () => {
+        const next: Identity = {
+          userId: safeUuid(),
+          token: randomToken(),
+          name: randomName(),
+        };
+        await persist(next);
+        return next;
+      })();
+    }
+    return creatingRef.current;
+  }, [persist]);
 
   const setName = useCallback(
     async (name: string) => {
