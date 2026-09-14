@@ -29,7 +29,7 @@ export default function GroupsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ code?: string }>();
   const { settings } = useSettings();
-  const { ensure } = useIdentity();
+  const { identity, hydrated: identityHydrated, ensure, setName } = useIdentity();
   const accent = settings.accent;
 
   const [groups, setGroups] = useState<GroupOut[]>([]);
@@ -38,17 +38,46 @@ export default function GroupsScreen() {
   const [busy, setBusy] = useState(false);
   const [createName, setCreateName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       abortRef.current?.abort();
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (identityHydrated) setNameDraft(identity?.name ?? '');
+  }, [identityHydrated, identity?.name]);
+
+  const trimmedNameDraft = nameDraft.trim();
+  const nameDirty =
+    trimmedNameDraft.length > 0 && trimmedNameDraft !== (identity?.name ?? '');
+
+  const onSaveName = async () => {
+    if (!nameDirty) return;
+    setNameSaving(true);
+    try {
+      await setName(trimmedNameDraft);
+      if (!mountedRef.current) return;
+      setNameSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => {
+        if (mountedRef.current) setNameSaved(false);
+      }, 1500);
+    } finally {
+      if (mountedRef.current) setNameSaving(false);
+    }
+  };
 
   const refresh = useCallback(async () => {
     abortRef.current?.abort();
@@ -165,6 +194,40 @@ export default function GroupsScreen() {
         keyExtractor={(g) => g.id}
         ListHeaderComponent={
           <View style={{ gap: 16 }}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Your name</Text>
+              <Text style={styles.sectionHint}>
+                How you show up on the leaderboard.
+              </Text>
+              <View style={styles.row}>
+                <TextInput
+                  value={nameDraft}
+                  onChangeText={setNameDraft}
+                  placeholder="Your name"
+                  placeholderTextColor="#666"
+                  maxLength={64}
+                  style={[styles.input, { flex: 1 }]}
+                />
+                <Pressable
+                  onPress={onSaveName}
+                  disabled={!nameDirty || nameSaving}
+                  style={({ pressed }) => [
+                    styles.btnSolid,
+                    { backgroundColor: accent },
+                    (pressed || nameSaving || !nameDirty) && { opacity: 0.6 },
+                  ]}
+                >
+                  {nameSaving ? (
+                    <ActivityIndicator color="#0b0b0f" />
+                  ) : nameSaved ? (
+                    <Ionicons name="checkmark" size={18} color="#0b0b0f" />
+                  ) : (
+                    <Text style={styles.btnSolidText}>Save</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Create a group</Text>
               <Text style={styles.sectionHint}>
