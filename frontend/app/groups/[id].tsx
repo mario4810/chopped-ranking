@@ -204,7 +204,7 @@ export default function GroupLeaderboardScreen() {
         if (mountedRef.current) setSubmitting(false);
       }
     },
-    [ensure, id, refresh, settings.apiBaseUrl],
+    [ensure, id, settings.apiBaseUrl],
   );
 
   if (!hydrated) {
